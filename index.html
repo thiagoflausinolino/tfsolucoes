@@ -1363,7 +1363,7 @@ footer{ background:var(--bg-0); border-top:1px solid var(--line); padding:64px 0
         </div>
         <div class="field"><label for="fmessage">Mensagem</label><textarea id="fmessage" name="mensagem" required placeholder="Conte um pouco sobre o que você precisa..."></textarea></div>
         <button type="submit" class="btn btn-primary btn-block">Enviar mensagem</button>
-        <p class="form-note">Seus dados ficam armazenados com segurança e são usados só para retornar seu orçamento — nunca compartilhados com terceiros nem usados para spam. Você pode pedir a remoção deles a qualquer momento pelo WhatsApp ou e-mail.</p>
+        <p class="form-note">Ao enviar, o WhatsApp abre com sua mensagem pronta — é só confirmar o envio. Seus dados são usados só para retornar seu orçamento, nunca compartilhados com terceiros. Você pode pedir a remoção deles a qualquer momento.</p>
       </form>
 
       <div class="contact-side reveal">
@@ -1632,7 +1632,7 @@ document.getElementById('toTop').addEventListener('click', function(){
   const toast = document.getElementById('toast');
   const WHATSAPP_NUMBER = '5511963682223';
 
-  function openWhatsAppFallback(data){
+  function openWhatsApp(data){
     const txt =
       'Olá! Vim pelo site e gostaria de um orçamento.\n\n' +
       'Nome: ' + (data.nome || '') + '\n' +
@@ -1647,27 +1647,24 @@ document.getElementById('toTop').addEventListener('click', function(){
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form).entries());
 
+    // Registro em segundo plano: tenta salvar no banco (painel /admin), mas sem
+    // travar nem atrasar o fluxo principal — se a API estiver fora, segue normal.
     try {
-      const r = await fetch('/api/contact', {
+      fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-      });
-      if (!r.ok) throw new Error('Falha ao salvar');
+        keepalive: true,
+      }).catch(function(){});
+    } catch (err) { /* silencioso de propósito */ }
 
-      toast.textContent = 'Mensagem enviada! Você também pode chamar no WhatsApp pra falar agora.';
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 4600);
-      form.reset();
-    } catch (err) {
-      // Se a API estiver indisponível, abre o WhatsApp com a mensagem pronta —
-      // funciona em praticamente qualquer celular ou computador, sem app de e-mail.
-      openWhatsAppFallback(data);
-      toast.textContent = 'Abrindo o WhatsApp com sua mensagem pronta — é só enviar.';
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 4600);
-      form.reset();
-    }
+    // Canal principal: WhatsApp com a mensagem completa já montada.
+    openWhatsApp(data);
+
+    toast.textContent = 'Abrindo o WhatsApp com sua mensagem pronta — é só enviar.';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 4600);
+    form.reset();
   });
 
   // Lead magnet: pré-preenche a mensagem quando vem da oferta de análise gratuita
